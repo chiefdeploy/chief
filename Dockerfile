@@ -31,4 +31,7 @@ RUN pnpm run build
 EXPOSE 3000
 EXPOSE 4000
 
+ARG CHIEF_VERSION
+ENV CHIEF_VERSION=$CHIEF_VERSION
+
 CMD /app/scripts/wait-for-it.sh chief_postgres:5432 --timeout=120 -- pnpm run start

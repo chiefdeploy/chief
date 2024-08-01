@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 export function Footer() {
-  const version = process.env.NEXT_PUBLIC_CHIEF_VERSION;
+  const version = process.env.CHIEF_VERSION;
 
   return (
     <footer className="w-full px-8 py-4">
