@@ -63,7 +63,7 @@ services:
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "${PASSWORD}"
       DOMAIN: "${DOMAIN}"
-      CHIEF_VERSION: "dev"
+      NEXT_PUBLIC_CHIEF_VERSION: "dev"
     volumes:
       - ./apps/ui/src:/app/apps/ui/src
       - ./apps/controller/src:/app/apps/controller/src
