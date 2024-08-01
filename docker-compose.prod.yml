@@ -34,7 +34,7 @@ services:
       - chief
 
   controller:
-    image: ghcr.io/chiefdeploy/controller:latest
+    image: ghcr.io/chiefdeploy/controller:${CHIEF_VERSION}
     container_name: chief_controller
     restart: always
     depends_on:
@@ -46,13 +46,14 @@ services:
       timeout: 3s
       retries: 1
     environment:
-      APP_DOMAIN: "http://${DOMAIN}"
+      APP_DOMAIN: "https://${DOMAIN}"
       DATABASE_URL: "postgres://chief:${PASSWORD}@chief_postgres:5432/chief"
       REDIS_URL: "redis://:${PASSWORD}@chief_redis:6379"
       REDIS_HOSTNAME: "chief_redis"
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "${PASSWORD}"
       DOMAIN: "${DOMAIN}"
+      CHIEF_VERSION: "${CHIEF_VERSION}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./Caddyfile:/Caddyfile
