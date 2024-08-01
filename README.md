@@ -3,7 +3,7 @@
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-white.png">
       <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-black.png">
-      <img alt="Chief" src="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-black.png">
+      <img alt="Chief" src="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-black.png" width="250px">
     </picture>
   </p>
 
