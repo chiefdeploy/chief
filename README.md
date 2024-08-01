@@ -1,10 +1,24 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-white.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-black.png">
-  <img alt="Chief" src="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-black.png">
-</picture>
+<p align="center">
+  <p align="center">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-white.png">
+      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-black.png">
+      <img alt="Chief" src="https://raw.githubusercontent.com/chiefdeploy/chief/main/assets/chief-logo-black.png">
+    </picture>
+  </p>
 
-# Chief
+  <p align="center">
+    The open source deployment platform for your apps and services.
+    <br />
+    <a href="https://chiefdeploy.com">Website</a>
+    ·
+    <a href="https://chiefdeploy.com/discord">Discord</a>
+  </p>
+</p>
+
+<p align="center">
+  <img alt="GitHub Release Date" src="https://img.shields.io/github/v/release/chiefdeploy/chief?sort=date&display_name=release">
+</p>
 
 > This repo is very messy, I'm currently working on cleaning it up.
 
@@ -39,10 +53,6 @@ chief update
 ```
 
 This will update Chief to the latest stable version.
-
-## Contributing
-
-If you'd like to contribute to Chief, please feel free to open an issue or pull request on the GitHub repository.
 
 ## Community
 
