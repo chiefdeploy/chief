@@ -1,0 +1,90 @@
+services:
+  redis:
+    image: bitnami/valkey:7.2
+    container_name: chief_redis
+    restart: always
+    volumes:
+      - redis_data:/bitnami/valkey/data
+    healthcheck:
+      test: ["CMD-SHELL", "echo", "true"]
+      interval: 5s
+      timeout: 3s
+      retries: 1
+    environment:
+      VALKEY_PASSWORD: "${PASSWORD}"
+    networks:
+      - chief
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: chief_postgres
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    environment:
+      POSTGRES_PASSWORD: "${PASSWORD}"
+      POSTGRES_USER: "chief"
+      POSTGRES_DB: "chief"
+    networks:
+      - chief
+
+  controller:
+    image: ghcr.io/chiefdeploy/controller:latest
+    container_name: chief_controller
+    restart: always
+    depends_on:
+      - redis
+      - postgres
+    healthcheck:
+      test: ["CMD", "echo", "true"]
+      interval: 5s
+      timeout: 3s
+      retries: 1
+    environment:
+      APP_DOMAIN: "http://${DOMAIN}"
+      DATABASE_URL: "postgres://chief:${PASSWORD}@chief_postgres:5432/chief"
+      REDIS_URL: "redis://:${PASSWORD}@chief_redis:6379"
+      REDIS_HOSTNAME: "chief_redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${PASSWORD}"
+      DOMAIN: "${DOMAIN}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Caddyfile:/Caddyfile
+      - caddy_sites:/sites
+    networks:
+      - chief
+  proxy:
+    image: caddy:latest
+    container_name: chief_proxy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    healthcheck:
+      test: ["CMD", "echo", "1"]
+      interval: 5s
+      timeout: 3s
+      retries: 1
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_sites:/sites
+    networks:
+      - chief
+
+networks:
+  chief:
+    name: chief
+    driver: overlay
+
+volumes:
+  redis_data:
+  postgres_data:
+  caddy_data:
+  caddy_sites:

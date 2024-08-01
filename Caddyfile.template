@@ -1,0 +1,42 @@
+{
+	admin 0.0.0.0:2019
+}
+
+(pmain) {
+	header -X-Powered-By
+}
+
+(proxy_headers) {
+	header_up x-chief-forwarded-for "{header.X-Forwarded-For}"
+	header_up x-real-ip "{header.X-Forwarded-For}"
+}
+
+${DOMAIN} {
+	import pmain
+
+	log_skip /*
+
+	handle /socket.io* {
+		reverse_proxy chief_controller:4000 {
+			import proxy_headers
+		}
+	}
+
+	handle /api* {
+		reverse_proxy chief_controller:4000 {
+			import proxy_headers
+		}
+	}
+
+	handle * {
+		reverse_proxy chief_controller:3000 {
+			import proxy_headers
+		}
+	}
+}
+
+:9999 {
+  respond "The requested service is not currently available. Please try again in a few seconds."
+}
+
+import /sites/*.caddy

@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String @id @unique @default(uuid())
+  email         String @unique
+  password_hash String
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  instance_admin Boolean @default(false)
+
+  organizations         OrganizationMember[]
+  organizations_created Organization[]
+  github_sources        OrganizationGithubSource[]
+
+  @@map("users")
+}
+
+model Organization {
+  id   String @id @unique @default(uuid())
+  name String
+
+  created_by_user_id String
+  created_by_user    User   @relation(fields: [created_by_user_id], references: [id])
+
+  created_at         DateTime                   @default(now())
+  updated_at         DateTime                   @updatedAt
+  members            OrganizationMember[]
+  projects           Project[]
+  github_sources     OrganizationGithubSource[]
+  postgres_instances PostgresInstance[]
+  redis_instances    RedisInstance[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id              String       @id @unique @default(uuid())
+  organization_id String
+  organization    Organization @relation(fields: [organization_id], references: [id])
+  user_id         String
+  user            User         @relation(fields: [user_id], references: [id])
+  admin           Boolean      @default(false)
+
+  @@map("organization_members")
+}
+
+model OrganizationGithubSource {
+  id     String  @id @unique @default(uuid())
+  app_id String?
+
+  name String @unique
+
+  owner_login  String?
+  owner_avatar String?
+
+  html_url       String?
+  client_id      String?
+  webhook_secret String?
+  pem            String?
+  client_secret  String?
+
+  installation_id String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  projects Project[]
+
+  added_by_user_id String?
+  added_by_user    User?   @relation(fields: [added_by_user_id], references: [id])
+
+  organization    Organization? @relation(fields: [organization_id], references: [id])
+  organization_id String?
+
+  @@map("github_sources")
+}
+
+enum ProjectType {
+  DOCKER
+  NIXPACKS
+}
+
+model Project {
+  id   String @id @unique @default(uuid())
+  name String
+
+  active    Boolean @default(true)
+  suspended Boolean @default(false)
+
+  repository String
+  domain     String?
+
+  web_proxy Boolean @default(true)
+  web_port  Int     @default(3000)
+
+  env_vars String?
+
+  type ProjectType @default(DOCKER)
+
+  github_source_id String
+  github_source    OrganizationGithubSource @relation(fields: [github_source_id], references: [id])
+
+  organization_id String
+  organization    Organization @relation(fields: [organization_id], references: [id])
+  builds          Build[]
+
+  instance_id String
+  instance    Instance? @relation(fields: [instance_id], references: [id])
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("projects")
+}
+
+model Build {
+  id         String  @id @unique @default(uuid())
+  project_id String
+  project    Project @relation(fields: [project_id], references: [id])
+
+  triggered            String // manual or automatic
+  triggered_by_user_id String?
+  commit_id            String // hash of the head commit
+  status               String // pending, downloading, building, deploying, deployed, failed_download, failed_build, failed_deploy
+
+  docker_image String?
+
+  deployed    Boolean   @default(false)
+  deployed_at DateTime?
+
+  started_at  DateTime
+  finished_at DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("builds")
+}
+
+model PostgresInstance {
+  id     String @id @unique @default(uuid())
+  name   String
+  status String // pending, running, stopped
+  image  String @default("postgres:16-alpine")
+
+  username String?
+  password String?
+  db       String?
+
+  published_port Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  deployed_at DateTime?
+
+  organization_id String
+  organization    Organization @relation(fields: [organization_id], references: [id])
+
+  instance_id String
+  instance    Instance? @relation(fields: [instance_id], references: [id])
+
+  @@map("postgres_instances")
+}
+
+model RedisInstance {
+  id     String @id @default(uuid())
+  name   String
+  status String // pending, running, stopped
+  image  String @default("bitnami/valkey:7.2")
+
+  password String?
+
+  published_port Int?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  deployed_at DateTime?
+
+  organization_id String
+  organization    Organization @relation(fields: [organization_id], references: [id])
+
+  instance_id String
+  instance    Instance? @relation(fields: [instance_id], references: [id])
+
+  @@map("redis_instances")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+}
+
+model BuildLog {
+  id String @id @unique @default(uuid())
+
+  body  String
+  level LogLevel
+
+  timestamp  DateTime @default(now())
+  project_id String
+  build_id   String
+
+  @@map("build_logs")
+}
+
+model DeploymentLog {
+  id String @id @unique @default(uuid())
+
+  body  String
+  level LogLevel
+
+  timestamp  DateTime @default(now())
+  project_id String
+  build_id   String
+
+  @@map("deployment_logs")
+}
+
+enum InstanceType {
+  LOCAL
+  REMOTE
+}
+
+model Instance {
+  id String @id @unique
+
+  ssh_ip       String?
+  ssh_username String?
+  ssh_key      String?
+
+  report_key String?
+
+  last_heartbeat DateTime?
+
+  type InstanceType @default(LOCAL)
+
+  created_at       DateTime           @default(now())
+  updated_at       DateTime           @updatedAt
+  RedisInstance    RedisInstance[]
+  PostgresInstance PostgresInstance[]
+  Project          Project[]
+
+  @@map("instances")
+}

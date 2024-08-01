@@ -1,0 +1,15 @@
+{
+  "name": "chief",
+  "main": "index.js",
+  "scripts": {
+    "build": "pnpm run db:generate; pnpm run db:push; pnpm run --filter './apps/**' --parallel -r build",
+    "start": "pnpm run db:push; pnpm run db:generate; dotenv -- pnpm run --filter './apps/**' --parallel -r start",
+    "dev": "pnpm run db:generate; pnpm run db:push; dotenv -- pnpm run --filter './apps/**' --parallel -r dev",
+    "db:push": "dotenv -- pnpm run --filter @chief/db db:push",
+    "db:generate": "dotenv -- pnpm run --filter @chief/db db:generate"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.2",
+    "prettier": "^3.3.2"
+  }
+}

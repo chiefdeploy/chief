@@ -1,0 +1,46 @@
+{
+  "name": "controller",
+  "main": "src/index.ts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx ./src/index.ts",
+    "dev": "nodemon --watch 'src/**/*' --ignore 'src/db/*' -e ts,tsx,mjs,js,json --exec 'tsx ./src/index.ts'",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@octokit/types": "^13.5.0",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.9",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "nodemon": "^3.1.4",
+    "rimraf": "^5.0.7",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.6.3",
+    "typescript": "^5.5.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@chief/db": "workspace:*",
+    "argon2": "^0.40.3",
+    "bull": "^4.15.0",
+    "concurrently": "^8.2.2",
+    "cookie-parser": "^1.4.6",
+    "dockerode": "^4.0.2",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "nanoid": "^5.0.7",
+    "node-ssh": "^13.2.0",
+    "octokit": "^4.0.2",
+    "prettier": "^3.3.2",
+    "socket.io": "^4.7.5",
+    "throng": "^5.0.0",
+    "tsx": "^4.16.2",
+    "typescript-eslint": "^7.15.0"
+  }
+}
