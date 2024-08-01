@@ -27,6 +27,7 @@ jobs:
         with:
           images: ghcr.io/chiefdeploy/controller
           tags: |
+            type=ref,event=branch
             type=sha
 
       - name: Set up QEMU
