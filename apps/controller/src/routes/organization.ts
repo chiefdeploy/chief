@@ -166,7 +166,7 @@ router.get("/:id/repos", authMiddleware, async (req: RequestWithUser, res) => {
 
     let repos: any[] = [];
 
-    for (const source of sources) {
+    for await (const source of sources) {
       if (!source.pem || !source.app_id) {
         continue;
       }
@@ -177,6 +177,7 @@ router.get("/:id/repos", authMiddleware, async (req: RequestWithUser, res) => {
       );
 
       repos = [
+        ...repos,
         ...repo_for_source.repositories.map((repo: any) => ({
           ...repo,
           source_id: source.id,
