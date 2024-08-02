@@ -207,7 +207,7 @@ export function Build({
                 <div className="text-md">
                   Duration :{" "}
                   <span className="font-bold">
-                    {compareTime(build.finished_at, build.deployed_at)}
+                    {compareTime(build.created_at, build.deployed_at)}
                   </span>
                 </div>
               )}
