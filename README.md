@@ -54,6 +54,27 @@ chief update
 
 This will update Chief to the latest stable version.
 
+## Features
+
+- [x] GitHub App Creation
+- [x] Automatic Deployments
+- [x] Nixpacks Support
+- [x] Redis (Valkey) & Postgres Support
+- [ ] Deployment Notifications (Discord, Slack, Telegram, Webhook's)
+- [ ] Remote Instances
+- [ ] Multi-region Deployments (instance groups)
+- [ ] Multi-factor authentication
+- [ ] Improved Log Viewer
+- [ ] Docker Log Reporting
+- [ ] Docker Terminal Access
+- [ ] Instance Metrics (Clickhouse ?)
+- [ ] Pausing Deployments
+- [ ] Improved Environment Variable Editor 
+- [ ] Organization Management Features
+
+
+If you'd like to work on any of these you can open up a pull request. If you need any further help feel free to contact me on our community [Discord](https://chiefdeploy.com/discord).
+
 ## Community
 
-If you have any questions feel free to reach out on the community Discord: [chiefdeploy.com/discord](https://chiefdeploy.com/discord)
+If you have any questions or suggestions feel free to reach out on the community Discord: [chiefdeploy.com/discord](https://chiefdeploy.com/discord)
