@@ -20,7 +20,14 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { DropdownMenuGroup } from "@radix-ui/react-dropdown-menu";
 import { Button } from "./ui/button";
-import { UserCircle } from "lucide-react";
+import {
+  Cog,
+  CogIcon,
+  MoonIcon,
+  Settings,
+  SunIcon,
+  UserCircle
+} from "lucide-react";
 import { useTheme } from "next-themes";
 
 export function Header({ user }: { user: Session }) {
@@ -67,9 +74,30 @@ export function Header({ user }: { user: Session }) {
           <div className="flex-1 flex flex-row justify-end gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <UserCircle className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all" />
-                  <span className="sr-only">Profile</span>
+                <Button variant="ghost" className="h-8 w-8 px-0">
+                  <SunIcon className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                  <MoonIcon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  <span className="sr-only">Toggle theme</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme("light")}>
+                  Light
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("dark")}>
+                  Dark
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme("system")}>
+                  System
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 px-0">
+                  <Settings className="h-[1.2rem] w-[1.2rem] hover:rotate-12 rotate-0 scale-100 transition-all" />
+                  <span className="sr-only">Settings</span>
                 </Button>
               </DropdownMenuTrigger>
 
@@ -77,28 +105,14 @@ export function Header({ user }: { user: Session }) {
                 <Link href="/profile">
                   <DropdownMenuItem>Profile</DropdownMenuItem>
                 </Link>
-                <DropdownMenuItem>Organizations</DropdownMenuItem>
+
+                <Link href="/orgs/edit">
+                  <DropdownMenuItem>Organization</DropdownMenuItem>
+                </Link>
+
                 <Link href="/admin">
                   <DropdownMenuItem>Admin Panel</DropdownMenuItem>
                 </Link>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>Theme</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={theme}
-                    onValueChange={setTheme}
-                  >
-                    <DropdownMenuRadioItem value="light">
-                      Light
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="dark">
-                      Dark
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="system">
-                      System
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuGroup>
 
                 <DropdownMenuSeparator />
                 <a href="/logout">
