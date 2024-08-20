@@ -2,9 +2,11 @@ import { App } from "octokit";
 import { createBuildLog, LogLevel } from "./logs";
 import prisma from "./prisma";
 import { exec } from "child_process";
+import { send_notification } from "./workers/workers";
+import { NotificationType } from "./workers/notifications";
 
 async function send_command(
-  command: string,
+  command: string
 ): Promise<{ ok: string; error: string | false }> {
   try {
     const { stdout, stderr } = (await new Promise((resolve, reject) => {
@@ -21,7 +23,7 @@ async function send_command(
 
     return {
       ok: stdout.toString() || stderr.toString(),
-      error: false,
+      error: false
     };
   } catch (error) {
     console.error("Error sending command", error);
@@ -37,21 +39,21 @@ export enum BuildStatus {
   deployed = "deployed",
   failed_download = "failed_download",
   failed_build = "failed_build",
-  failed_deploy = "failed_deploy",
+  failed_deploy = "failed_deploy"
 }
 
 export async function build_project(
   project_id: string,
   trigger: "manual" | "automatic",
-  triggered_by_user_id?: string,
+  triggered_by_user_id?: string
 ) {
   const project = await prisma.project.findFirst({
     where: {
-      id: project_id,
+      id: project_id
     },
     include: {
-      github_source: true,
-    },
+      github_source: true
+    }
   });
 
   if (
@@ -68,19 +70,19 @@ export async function build_project(
 
   const app = new App({
     appId: project.github_source.app_id,
-    privateKey: project.github_source.pem,
+    privateKey: project.github_source.pem
   });
 
   // get commit metadata
 
   const octokit = await app.getInstallationOctokit(
-    Number(project.github_source.installation_id),
+    Number(project.github_source.installation_id)
   );
 
   const repo = (
     await octokit.rest.repos.get({
       owner: project.repository.split("/")[0],
-      repo: project.repository.split("/")[1],
+      repo: project.repository.split("/")[1]
     })
   ).data;
 
@@ -88,13 +90,13 @@ export async function build_project(
     await octokit.rest.repos.getCommit({
       owner: project.repository.split("/")[0],
       repo: project.repository.split("/")[1],
-      ref: "main",
+      ref: "main"
     })
   ).data;
 
   if (!commit || !repo) {
     return {
-      status: "failed_download",
+      status: "failed_download"
     };
   }
 
@@ -105,19 +107,19 @@ export async function build_project(
       triggered_by_user_id: triggered_by_user_id || null,
       started_at: new Date(),
       commit_id: commit.sha,
-      status: BuildStatus.downloading,
-    },
+      status: BuildStatus.downloading
+    }
   });
 
   await createBuildLog(project.id, build.id, "Build started.", LogLevel.INFO);
 
   await prisma.build.update({
     where: {
-      id: build.id,
+      id: build.id
     },
     data: {
-      status: BuildStatus.downloading,
-    },
+      status: BuildStatus.downloading
+    }
   });
 
   await octokit.rest.repos.createCommitStatus({
@@ -127,7 +129,7 @@ export async function build_project(
     state: "pending",
     context: "chief/build",
     description: "Building project.",
-    target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+    target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
   });
 
   // create build folder
@@ -136,11 +138,11 @@ export async function build_project(
     project.id,
     build.id,
     "Creating build folder.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   const { ok: create_folder, error: create_folder_error } = await send_command(
-    `mkdir -p /tmp/builder/${build.id}`,
+    `mkdir -p /tmp/builder/${build.id}`
   );
 
   await createBuildLog(project.id, build.id, "Folder created.", LogLevel.INFO);
@@ -149,13 +151,13 @@ export async function build_project(
     project.id,
     build.id,
     "Getting tarball from repository.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   const tarball = await octokit.rest.repos.downloadTarballArchive({
     owner: project.repository.split("/")[0],
     repo: project.repository.split("/")[1],
-    ref: repo.default_branch,
+    ref: repo.default_branch
   });
 
   if (!tarball || !tarball.url) {
@@ -165,16 +167,18 @@ export async function build_project(
       project.id,
       build.id,
       "Failed to get tarball from repository.",
-      LogLevel.ERROR,
+      LogLevel.ERROR
     );
+
+    await send_notification(build.id, NotificationType.FailedBuild);
 
     await prisma.build.update({
       where: {
-        id: build.id,
+        id: build.id
       },
       data: {
-        status: BuildStatus.failed_download,
-      },
+        status: BuildStatus.failed_download
+      }
     });
 
     await octokit.rest.repos.createCommitStatus({
@@ -184,12 +188,12 @@ export async function build_project(
       state: "failure",
       context: "chief/build",
       description: "Downloading project failed.",
-      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
     });
 
     return {
       id: build.id,
-      status: "failed_download",
+      status: "failed_download"
     };
   }
 
@@ -199,21 +203,21 @@ export async function build_project(
     project.id,
     build.id,
     "Starting download.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   const { ok: downloading, error: downloading_error } = await send_command(
-    `cd /tmp/builder/${build.id}; wget ${tarball.url} -qO- | tar xvz`,
+    `cd /tmp/builder/${build.id}; wget ${tarball.url} -qO- | tar xvz`
   );
 
   if (downloading_error) {
     await prisma.build.update({
       where: {
-        id: build.id,
+        id: build.id
       },
       data: {
-        status: BuildStatus.failed_download,
-      },
+        status: BuildStatus.failed_download
+      }
     });
 
     await octokit.rest.repos.createCommitStatus({
@@ -223,19 +227,21 @@ export async function build_project(
       state: "failure",
       context: "chief/build",
       description: "Downloading project failed.",
-      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
     });
 
     await createBuildLog(
       project.id,
       build.id,
       "Download failed.",
-      LogLevel.ERROR,
+      LogLevel.ERROR
     );
+
+    await send_notification(build.id, NotificationType.FailedBuild);
 
     return {
       id: build.id,
-      status: "failed_download",
+      status: "failed_download"
     };
   }
 
@@ -243,16 +249,16 @@ export async function build_project(
     project.id,
     build.id,
     "Downloading finished.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   await prisma.build.update({
     where: {
-      id: build.id,
+      id: build.id
     },
     data: {
-      status: BuildStatus.building,
-    },
+      status: BuildStatus.building
+    }
   });
 
   // set all env vars as build args
@@ -266,11 +272,11 @@ export async function build_project(
       project.id,
       build.id,
       "Starting the build.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const { ok: build_docker, error: build_docker_error } = await send_command(
-      `cd /tmp/builder/${build.id}/${project.repository.replace("/", "-")}-${commit.sha}; docker build ${env_vars} -t ${project.id}:${commit.sha} .`,
+      `cd /tmp/builder/${build.id}/${project.repository.replace("/", "-")}-${commit.sha}; docker build ${env_vars} -t ${project.id}:${commit.sha} .`
     );
 
     if (build_docker_error) {
@@ -278,16 +284,18 @@ export async function build_project(
         project.id,
         build.id,
         build_docker_error,
-        LogLevel.ERROR,
+        LogLevel.ERROR
       );
+
+      await send_notification(build.id, NotificationType.FailedBuild);
 
       await prisma.build.update({
         where: {
-          id: build.id,
+          id: build.id
         },
         data: {
-          status: BuildStatus.failed_build,
-        },
+          status: BuildStatus.failed_build
+        }
       });
 
       await octokit.rest.repos.createCommitStatus({
@@ -297,19 +305,19 @@ export async function build_project(
         state: "failure",
         context: "chief/build",
         description: "Building project failed.",
-        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
       });
 
       await createBuildLog(
         project.id,
         build.id,
         "Docker build failed.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
 
       return {
         id: build.id,
-        status: "failed_build",
+        status: "failed_build"
       };
     }
 
@@ -323,11 +331,11 @@ export async function build_project(
       project.id,
       build.id,
       "Starting the build using Nixpacks.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const { ok: build_docker, error: build_docker_error } = await send_command(
-      `cd /tmp/builder/${build.id}/${project.repository.replace("/", "-")}-${commit.sha}; nixpacks build . ${env_vars} --name ${project.id}:${commit.sha}`,
+      `cd /tmp/builder/${build.id}/${project.repository.replace("/", "-")}-${commit.sha}; nixpacks build . ${env_vars} --name ${project.id}:${commit.sha}`
     );
 
     if (build_docker_error) {
@@ -335,16 +343,18 @@ export async function build_project(
         project.id,
         build.id,
         build_docker_error,
-        LogLevel.ERROR,
+        LogLevel.ERROR
       );
+
+      await send_notification(build.id, NotificationType.FailedBuild);
 
       await prisma.build.update({
         where: {
-          id: build.id,
+          id: build.id
         },
         data: {
-          status: BuildStatus.failed_build,
-        },
+          status: BuildStatus.failed_build
+        }
       });
 
       await octokit.rest.repos.createCommitStatus({
@@ -354,19 +364,19 @@ export async function build_project(
         state: "failure",
         context: "chief/build",
         description: "Building project failed.",
-        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
       });
 
       await createBuildLog(
         project.id,
         build.id,
         "Nixpacks build failed.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
 
       return {
         id: build.id,
-        status: "failed_build",
+        status: "failed_build"
       };
     }
 
@@ -379,23 +389,23 @@ export async function build_project(
     project.id,
     build.id,
     "Build finished successfully.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   await createBuildLog(project.id, build.id, "Tagging image.", LogLevel.INFO);
 
   const { ok: tag_image, error: tag_image_error } = await send_command(
-    `docker tag ${project.id}:${commit.sha} ${project.id}:latest`,
+    `docker tag ${project.id}:${commit.sha} ${project.id}:latest`
   );
 
   if (tag_image_error) {
     await prisma.build.update({
       where: {
-        id: build.id,
+        id: build.id
       },
       data: {
-        status: BuildStatus.failed_build,
-      },
+        status: BuildStatus.failed_build
+      }
     });
 
     await octokit.rest.repos.createCommitStatus({
@@ -405,19 +415,21 @@ export async function build_project(
       state: "failure",
       context: "chief/build",
       description: "Failed to tag image.",
-      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
     });
 
     await createBuildLog(
       project.id,
       build.id,
       "Image tagging failed.",
-      LogLevel.ERROR,
+      LogLevel.ERROR
     );
+
+    await send_notification(build.id, NotificationType.FailedBuild);
 
     return {
       id: build.id,
-      status: "failed_build",
+      status: "failed_build"
     };
   }
 
@@ -428,14 +440,14 @@ export async function build_project(
     project.id,
     build.id,
     "Image tagged successfully.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   await createBuildLog(
     project.id,
     build.id,
     "Starting cleanup.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   await send_command(`rm -rf /tmp/builder/${build.id}`);
@@ -444,25 +456,25 @@ export async function build_project(
     project.id,
     build.id,
     "Build folder deleted.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   await createBuildLog(
     project.id,
     build.id,
     "Build finished, waiting for deployment.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   await prisma.build.update({
     where: {
-      id: build.id,
+      id: build.id
     },
     data: {
       status: BuildStatus.pending,
       finished_at: new Date(),
-      docker_image: `${project.id}:${commit.sha}`,
-    },
+      docker_image: `${project.id}:${commit.sha}`
+    }
   });
 
   await octokit.rest.repos.createCommitStatus({
@@ -472,12 +484,12 @@ export async function build_project(
     state: "success",
     context: "chief/build",
     description: "Project built successfully.",
-    target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+    target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
   });
 
   return {
     id: build.id,
     status: "success",
-    image: project.id + ":" + commit.sha,
+    image: project.id + ":" + commit.sha
   };
 }

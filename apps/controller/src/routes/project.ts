@@ -305,6 +305,12 @@ router.delete("/:id", authMiddleware, async (req: RequestWithUser, res) => {
       }
     });
 
+    await prisma.projectNotificationEndpoint.deleteMany({
+      where: {
+        project_id: id
+      }
+    });
+
     await prisma.project.delete({
       where: {
         id: id
@@ -591,6 +597,127 @@ router.post(
       res.status(500).json({
         error: "failed_to_transfer_project"
       });
+    }
+  }
+);
+
+// POST @/project/:id/notification-endpoint
+router.post(
+  "/:id/notification-endpoint",
+  authMiddleware,
+  async (req: RequestWithUser, res) => {
+    const { id } = req.params;
+
+    try {
+      const { endpoint_id } = req.body;
+
+      if (!endpoint_id) {
+        res.status(400).json({ error: "missing_required_fields" });
+        return;
+      }
+
+      const endpoint = await prisma.organizationNotificationEndpoint.findFirst({
+        where: {
+          id: endpoint_id
+        }
+      });
+
+      if (!endpoint) {
+        res.status(404).json({ error: "invalid_endpoint" });
+        return;
+      }
+
+      await prisma.projectNotificationEndpoint.create({
+        data: {
+          project_id: id,
+          notification_endpoint_id: endpoint_id
+        }
+      });
+
+      res.json({ ok: true });
+    } catch (e) {
+      console.log(e);
+      res.status(500).json({ error: "internal_server_error" });
+    }
+  }
+);
+
+// GET @/project/:id/notification-endpoints
+router.get(
+  "/:id/notification-endpoints",
+  authMiddleware,
+  async (req: RequestWithUser, res) => {
+    const { id } = req.params;
+
+    try {
+      const endpoints = await prisma.projectNotificationEndpoint.findMany({
+        where: {
+          project_id: id,
+          project: {
+            organization: {
+              members: {
+                some: {
+                  user_id: req.user!.id
+                }
+              }
+            }
+          }
+        },
+        select: {
+          notification_endpoint: {
+            select: {
+              id: true,
+              name: true,
+              type: true
+            }
+          }
+        }
+      });
+
+      res.json({ ok: true, endpoints: endpoints || [] });
+    } catch (e) {
+      console.log(e);
+      res.status(500).json({ error: "internal_server_error" });
+    }
+  }
+);
+
+// DELETE @/project/:id/notification-endpoint/:endpoint_id
+router.delete(
+  "/:id/notification-endpoint/:endpoint_id",
+  authMiddleware,
+  async (req: RequestWithUser, res) => {
+    const { id, endpoint_id } = req.params;
+
+    try {
+      const project = await prisma.project.findFirst({
+        where: {
+          id: id,
+          organization: {
+            members: {
+              some: {
+                user_id: req.user!.id
+              }
+            }
+          }
+        }
+      });
+
+      if (!project) {
+        return res.status(404).json({ error: "project_not_found" });
+      }
+
+      await prisma.projectNotificationEndpoint.deleteMany({
+        where: {
+          project_id: id,
+          notification_endpoint_id: endpoint_id
+        }
+      });
+
+      res.json({ ok: true });
+    } catch (e) {
+      console.log(e);
+      res.status(500).json({ error: "internal_server_error" });
     }
   }
 );

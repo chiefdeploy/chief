@@ -28,7 +28,7 @@ import { NewRedisModal } from "./new_redis";
 import { DeleteServiceDialog } from "./delete_service";
 import { Project } from "../projects/[id]/project";
 import { PostgresIcon } from "@/components/icons/postgres_icon";
-import { RedisIcon } from "@/components/icons/redis_icon";
+import { ValkeyIcon } from "@/components/icons/valkey_icon";
 import {
   Dialog,
   DialogClose,
@@ -150,14 +150,14 @@ function ServiceItem({ service, user }: { service: any; user: Session }) {
               <PostgresIcon className="w-4 h-4 mt-0.5" />
             )}
             {service.type === "redis" && (
-              <RedisIcon className="w-4 h-4 mt-0.5" />
+              <ValkeyIcon className="w-4 h-4 mt-0.5" />
             )}
             <h3 className="text-md font-bold">{service.name}</h3>
           </div>
           <div className="flex flex-row gap-2 items-center">
             <div className="text-muted-foreground font-bold">
               {service.type === "postgres" && "Postgres"}
-              {service.type === "redis" && "Redis"}
+              {service.type === "redis" && "Valkey (Redis)"}
             </div>
             <ServiceDropdown service={service} user={user} />
           </div>
@@ -283,7 +283,7 @@ export function Services({ user }: { user: Session }) {
                 Postgres
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowRedisModal(true)}>
-                Redis
+                Redis (Valkey)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

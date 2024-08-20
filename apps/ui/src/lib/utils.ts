@@ -32,3 +32,7 @@ export function compareTime(a_time: string, b_time: string) {
 export function relative_time(date: Date) {
   return dayjs(date).fromNow();
 }
+
+export function capitalize(str: string) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}

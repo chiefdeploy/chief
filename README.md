@@ -20,8 +20,6 @@
   <img alt="GitHub Release Date" src="https://img.shields.io/github/v/release/chiefdeploy/chief?sort=date&display_name=release">
 </p>
 
-> This repo is very messy, I'm currently working on cleaning it up.
-
 Chief is a deployment platform that allows you to deploy your apps and services to any cloud provider.
 
 ## Installation
@@ -60,7 +58,7 @@ This will update Chief to the latest stable version.
 - [x] Automatic Deployments
 - [x] Nixpacks Support
 - [x] Redis (Valkey) & Postgres Support
-- [ ] Deployment Notifications (Discord, Slack, Telegram, Webhook's)
+- [x] Deployment Notifications (Discord, Slack, Webhook's)
 - [ ] Remote Instances
 - [ ] Multi-region Deployments (instance groups)
 - [ ] Multi-factor authentication
