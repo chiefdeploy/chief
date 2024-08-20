@@ -3,6 +3,7 @@ import prisma from "../lib/prisma";
 import { authMiddleware, type RequestWithUser } from "../lib/auth_middleware";
 import { get_github_repositories } from "../lib/github";
 import { create } from "domain";
+import { NotificationType } from "@chief/db";
 
 const router = Router();
 
@@ -361,6 +362,159 @@ router.post(
         },
         data: {
           name: name
+        }
+      });
+
+      res.json({
+        ok: true
+      });
+    } catch (e) {
+      console.log(e);
+      res.status(500).json({ error: "internal_server_error" });
+    }
+  }
+);
+
+// GET @/organization/:id/notification-endpoints
+router.get(
+  "/:id/notification-endpoints",
+  authMiddleware,
+  async (req: RequestWithUser, res) => {
+    try {
+      const organization = await prisma.organization.findFirst({
+        where: {
+          id: req.params.id,
+          members: {
+            some: {
+              user_id: req.user!.id,
+              admin: true
+            }
+          }
+        },
+        include: {
+          notification_endpoints: true
+        }
+      });
+
+      if (!organization) {
+        res.status(404).json({ error: "organization_not_found" });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        endpoints: organization?.notification_endpoints || []
+      });
+    } catch (e) {
+      console.log(e);
+      res.status(500).json({ error: "internal_server_error" });
+    }
+  }
+);
+
+// POST @/organization/:id/create-notification-endpoint
+router.post(
+  "/:id/create-notification-endpoint",
+  authMiddleware,
+  async (req: RequestWithUser, res) => {
+    try {
+      const { id } = req.params;
+      const organization = await prisma.organization.findFirst({
+        where: {
+          id: id,
+          members: {
+            some: {
+              user_id: req.user!.id,
+              admin: true
+            }
+          }
+        }
+      });
+
+      if (!organization) {
+        res.status(404).json({ error: "organization_not_found" });
+        return;
+      }
+
+      const { name, type, endpoint } = req.body;
+
+      if (!name || !type || !endpoint) {
+        res.status(400).json({ error: "missing_required_fields" });
+        return;
+      }
+
+      if (type in NotificationType) {
+        res.status(400).json({ error: "invalid_notification_type" });
+      }
+
+      if (type === NotificationType.SLACK) {
+        if (
+          !endpoint.startsWith("https://hooks.slack.com/services/") &&
+          !endpoint.startsWith("https://hooks.slack-gov.com/services/")
+        ) {
+          res.status(400).json({ error: "invalid_endpoint" });
+          return;
+        }
+      } else if (type === NotificationType.DISCORD) {
+        if (!endpoint.startsWith("https://discord.com/api/webhooks/")) {
+          res.status(400).json({ error: "invalid_endpoint" });
+          return;
+        }
+      }
+
+      await prisma.organizationNotificationEndpoint.create({
+        data: {
+          name,
+          type,
+          endpoint,
+          organization_id: id
+        }
+      });
+
+      res.json({
+        ok: true
+      });
+    } catch (e) {
+      console.log(e);
+      res.status(500).json({ error: "internal_server_error" });
+    }
+  }
+);
+
+// DELETE @/organization/:id/notification-endpoints/:endpoint_id
+router.delete(
+  "/:id/notification-endpoints/:endpoint_id",
+  authMiddleware,
+  async (req: RequestWithUser, res) => {
+    try {
+      const { id, endpoint_id } = req.params;
+
+      const organization = await prisma.organization.findFirst({
+        where: {
+          id: id,
+          members: {
+            some: {
+              user_id: req.user!.id,
+              admin: true
+            }
+          }
+        }
+      });
+
+      if (!organization) {
+        res.status(404).json({ error: "organization_not_found" });
+        return;
+      }
+
+      await prisma.projectNotificationEndpoint.deleteMany({
+        where: {
+          notification_endpoint_id: endpoint_id
+        }
+      });
+
+      await prisma.organizationNotificationEndpoint.delete({
+        where: {
+          id: endpoint_id
         }
       });
 

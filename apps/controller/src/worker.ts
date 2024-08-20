@@ -12,6 +12,8 @@ import {
   create_redis_service,
   delete_redis_service
 } from "./lib/workers/redis";
+import { prisma } from "@chief/db";
+import { send_notification_worker } from "./lib/workers/notifications";
 
 export function workerThread(id: number) {
   console.log(`Worker thread #${id} started.`);
@@ -191,6 +193,47 @@ export function workerThread(id: number) {
       .catch((err) => {
         console.log(err);
       });
+
+    done();
+  });
+
+  // send notification queue
+  const queue_send_notification = new Queue(
+    "send_notification",
+    process.env.REDIS_URL!
+  );
+
+  queue_send_notification.process(20, async (job, done) => {
+    try {
+      console.log("send notification job", job.data);
+
+      const build_id = job.data.build_id;
+      const type = job.data.type;
+
+      if (!build_id || !type) {
+        console.log("send notification worker: missing build_id or type");
+
+        done();
+        return;
+      }
+
+      const build = await prisma.build.findUnique({
+        where: {
+          id: build_id
+        }
+      });
+
+      if (!build) {
+        console.log("send notification worker: build not found");
+
+        done();
+        return;
+      }
+
+      await send_notification_worker(type, build);
+    } catch (err) {
+      console.log(err);
+    }
 
     done();
   });

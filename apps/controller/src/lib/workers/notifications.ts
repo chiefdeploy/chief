@@ -1,7 +1,7 @@
 import { Build, prisma, Project } from "@chief/db";
 import { APP_DOMAIN } from "../constants";
 
-enum NotificationType {
+export enum NotificationType {
   SuccessfulDeploy = "successful_deploy",
   FailedDeploy = "failed_deploy",
   FailedBuild = "failed_build"
@@ -13,7 +13,10 @@ enum NotificationType {
  * @param project Project that the notification is about.
  * @param build Build that the notification is about.
  */
-export async function send_notification(type: NotificationType, build: Build) {
+export async function send_notification_worker(
+  type: NotificationType,
+  build: Build
+) {
   const project = await prisma.project.findUnique({
     where: {
       id: build.project_id

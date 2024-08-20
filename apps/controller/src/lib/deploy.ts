@@ -3,9 +3,11 @@ import { BuildStatus } from "./build";
 import { exec } from "child_process";
 import { createDeploymentLog, LogLevel } from "./logs";
 import { App } from "octokit";
+import { send_notification } from "./workers/workers";
+import { NotificationType } from "./workers/notifications";
 
 async function send_command(
-  command: string,
+  command: string
 ): Promise<{ ok: string; error: string | false; exitCode: number }> {
   try {
     const result = (await new Promise((resolve, reject) => {
@@ -15,13 +17,13 @@ async function send_command(
           reject({
             stderr: stderr.toString(),
             stdout: stdout.toString(),
-            exitCode,
+            exitCode
           });
         } else {
           resolve({
             stdout: stdout.toString(),
             stderr: stderr.toString(),
-            exitCode,
+            exitCode
           });
         }
       });
@@ -32,14 +34,14 @@ async function send_command(
     return {
       ok: result.stdout || result.stderr,
       error: false,
-      exitCode: result.exitCode,
+      exitCode: result.exitCode
     };
   } catch (error) {
     console.error("Error sending command", error);
     return {
       ok: error.stdout,
       error: error.stderr || error.message,
-      exitCode: error.exitCode || 1,
+      exitCode: error.exitCode || 1
     };
   }
 }
@@ -68,22 +70,22 @@ function generate_caddyfile(domain: string, service_id: string, port: number) {
 
 export async function deploy_project(
   project_id: string,
-  source_build_id?: string,
+  source_build_id?: string
 ) {
   console.log("started deploying project", project_id, source_build_id);
   const project = await prisma.project.findFirst({
     where: {
-      id: project_id,
+      id: project_id
     },
     include: {
       github_source: true,
       builds: {
         orderBy: {
-          created_at: "desc",
+          created_at: "desc"
         },
-        take: 1,
-      },
-    },
+        take: 1
+      }
+    }
   });
 
   if (!project) {
@@ -93,8 +95,8 @@ export async function deploy_project(
 
   const build = await prisma.build.findFirst({
     where: {
-      id: source_build_id || project.builds[0].id,
-    },
+      id: source_build_id || project.builds[0].id
+    }
   });
 
   if (!build) {
@@ -106,27 +108,27 @@ export async function deploy_project(
 
   await prisma.build.update({
     where: {
-      id: build_id,
+      id: build_id
     },
     data: {
-      status: BuildStatus.deploying,
-    },
+      status: BuildStatus.deploying
+    }
   });
 
   const app = new App({
     appId: project.github_source.app_id,
-    privateKey: project.github_source.pem,
+    privateKey: project.github_source.pem
   });
 
   const octokit = await app.getInstallationOctokit(
-    Number(project.github_source.installation_id),
+    Number(project.github_source.installation_id)
   );
 
   await createDeploymentLog(
     project.id,
     build.id,
     "Starting deployment.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   await octokit.rest.repos.createCommitStatus({
@@ -136,14 +138,14 @@ export async function deploy_project(
     state: "pending",
     context: "chief/deployment",
     description: "Starting deployment.",
-    target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+    target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
   });
 
   await createDeploymentLog(
     project.id,
     build.id,
     "Checking if previous deployment already exists.",
-    LogLevel.INFO,
+    LogLevel.INFO
   );
 
   const { ok: does_deployment_exist, error: does_deployment_exist_error } =
@@ -160,12 +162,12 @@ export async function deploy_project(
       project.id,
       build.id,
       "Deployment already exists, will update.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const { ok: does_caddyfile_exist, error: does_caddyfile_exist_error } =
       await send_command(
-        `if test -f /${project.id}.caddy; then echo "true"; else echo "false"; fi`,
+        `if test -f /${project.id}.caddy; then echo "true"; else echo "false"; fi`
       );
 
     console.log("caddyfile exists", does_caddyfile_exist);
@@ -178,7 +180,7 @@ export async function deploy_project(
         project.id,
         build.id,
         "Generating proxy config.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
 
       let domain = project.domain;
@@ -188,29 +190,29 @@ export async function deploy_project(
       const caddy_file = generate_caddyfile(
         domain,
         project.id,
-        project.web_port,
+        project.web_port
       );
 
       const caddyfile_as_base64 = Buffer.from(caddy_file).toString("base64");
 
       const { ok: create_caddyfile, error: create_caddyfile_error } =
         await send_command(
-          `echo "${caddyfile_as_base64}" | base64 --decode > /sites/${project.id}.caddy`,
+          `echo "${caddyfile_as_base64}" | base64 --decode > /sites/${project.id}.caddy`
         );
 
       if (create_caddyfile_error) {
         console.log({
-          error: "failed_to_create_caddyfile",
+          error: "failed_to_create_caddyfile"
         });
 
         await prisma.build.update({
           where: {
-            id: build_id,
+            id: build_id
           },
           data: {
             deployed_at: new Date(),
-            status: BuildStatus.failed_deploy,
-          },
+            status: BuildStatus.failed_deploy
+          }
         });
 
         await octokit.rest.repos.createCommitStatus({
@@ -220,15 +222,17 @@ export async function deploy_project(
           state: "failure",
           context: "chief/deployment",
           description: "Failed to create proxy config.",
-          target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+          target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
         });
 
         await createDeploymentLog(
           project.id,
           build.id,
           "Failed to create proxy config.",
-          LogLevel.ERROR,
+          LogLevel.ERROR
         );
+
+        await send_notification(build.id, NotificationType.FailedDeploy);
 
         return false;
       }
@@ -239,7 +243,7 @@ export async function deploy_project(
         project.id,
         build.id,
         "Proxy config created.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
     }
 
@@ -251,27 +255,27 @@ export async function deploy_project(
       project.id,
       build.id,
       "Updating service.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const { ok: update_service_docker, error: update_service_docker_error } =
       await send_command(
-        `docker service update --image ${project.id}:${build.commit_id} --force --with-registry-auth ${env_vars} --env-add PORT=${project.web_port} ${project.id}`,
+        `docker service update --image ${project.id}:${build.commit_id} --force --with-registry-auth ${env_vars} --env-add PORT=${project.web_port} ${project.id}`
       );
 
     if (update_service_docker_error) {
       console.log({
-        error: "failed_to_update_service_docker",
+        error: "failed_to_update_service_docker"
       });
 
       await prisma.build.update({
         where: {
-          id: build_id,
+          id: build_id
         },
         data: {
           deployed_at: new Date(),
-          status: BuildStatus.failed_deploy,
-        },
+          status: BuildStatus.failed_deploy
+        }
       });
 
       await octokit.rest.repos.createCommitStatus({
@@ -281,15 +285,17 @@ export async function deploy_project(
         state: "failure",
         context: "chief/deployment",
         description: "Failed to update service.",
-        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
       });
 
       await createDeploymentLog(
         project.id,
         build.id,
         "Failed to update service.",
-        LogLevel.ERROR,
+        LogLevel.ERROR
       );
+
+      await send_notification(build.id, NotificationType.FailedDeploy);
 
       return false;
     }
@@ -298,41 +304,41 @@ export async function deploy_project(
       project.id,
       build.id,
       update_service_docker.toString(),
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     await createDeploymentLog(
       project.id,
       build.id,
       "Service updated.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     await createDeploymentLog(
       project.id,
       build.id,
       "Applying proxy config.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const { ok: refresh_caddy, error: refresh_caddy_error } =
       await send_command(
-        `curl "http://chief_proxy:2019/load" -H "Content-Type: text/caddyfile" --data-binary @/Caddyfile --silent`,
+        `curl "http://chief_proxy:2019/load" -H "Content-Type: text/caddyfile" --data-binary @/Caddyfile --silent`
       );
 
     if (refresh_caddy_error) {
       console.log({
-        error: "failed_to_refresh_caddy",
+        error: "failed_to_refresh_caddy"
       });
 
       await prisma.build.update({
         where: {
-          id: build_id,
+          id: build_id
         },
         data: {
           deployed_at: new Date(),
-          status: BuildStatus.failed_deploy,
-        },
+          status: BuildStatus.failed_deploy
+        }
       });
 
       await octokit.rest.repos.createCommitStatus({
@@ -342,15 +348,17 @@ export async function deploy_project(
         state: "failure",
         context: "chief/deployment",
         description: "Failed to refresh proxy.",
-        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
       });
 
       await createDeploymentLog(
         project.id,
         build.id,
         "Failed to apply proxy config.",
-        LogLevel.ERROR,
+        LogLevel.ERROR
       );
+
+      await send_notification(build.id, NotificationType.FailedDeploy);
 
       return false;
     }
@@ -361,17 +369,17 @@ export async function deploy_project(
       project.id,
       build.id,
       "Proxy config applied.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     await prisma.build.update({
       where: {
-        id: build_id,
+        id: build_id
       },
       data: {
         deployed_at: new Date(),
-        status: BuildStatus.deployed,
-      },
+        status: BuildStatus.deployed
+      }
     });
 
     await octokit.rest.repos.createCommitStatus({
@@ -381,19 +389,21 @@ export async function deploy_project(
       state: "success",
       context: "chief/deployment",
       description: "Project deployed successfully.",
-      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+      target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
     });
 
     await createDeploymentLog(
       project.id,
       build.id,
-      "Deployment successful.",
-      LogLevel.INFO,
+      "Deployment successful. ✅",
+      LogLevel.INFO
     );
+
+    await send_notification(build.id, NotificationType.SuccessfulDeploy);
 
     return {
       status: "success",
-      update_service_docker,
+      update_service_docker
     };
   } else {
     const env_vars = project.env_vars
@@ -406,7 +416,7 @@ export async function deploy_project(
       project.id,
       build.id,
       "Creating new deployment.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     // create new service
@@ -424,17 +434,17 @@ ${project.id}:${build.commit_id}`);
 
     if (create_deployment_error) {
       console.log({
-        error: "failed_to_create_deployment",
+        error: "failed_to_create_deployment"
       });
 
       await prisma.build.update({
         where: {
-          id: build_id,
+          id: build_id
         },
         data: {
           deployed_at: new Date(),
-          status: BuildStatus.failed_deploy,
-        },
+          status: BuildStatus.failed_deploy
+        }
       });
 
       await octokit.rest.repos.createCommitStatus({
@@ -444,15 +454,17 @@ ${project.id}:${build.commit_id}`);
         state: "failure",
         context: "chief/deployment",
         description: "Failed to create deployment.",
-        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
       });
 
       await createDeploymentLog(
         project.id,
         build.id,
         "Failed to create deployment.",
-        LogLevel.ERROR,
+        LogLevel.ERROR
       );
+
+      await send_notification(build.id, NotificationType.FailedDeploy);
 
       return false;
     }
@@ -461,21 +473,21 @@ ${project.id}:${build.commit_id}`);
       project.id,
       build.id,
       create_deployment.toString(),
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     await createDeploymentLog(
       project.id,
       build.id,
       "Deployment created.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     await createDeploymentLog(
       project.id,
       build.id,
       "Checking deployment status.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const { ok: get_deployment, error: get_deployment_error } =
@@ -483,17 +495,17 @@ ${project.id}:${build.commit_id}`);
 
     if (get_deployment_error) {
       console.log({
-        error: "failed_to_get_deployment",
+        error: "failed_to_get_deployment"
       });
 
       await prisma.build.update({
         where: {
-          id: build_id,
+          id: build_id
         },
         data: {
           deployed_at: new Date(),
-          status: BuildStatus.failed_deploy,
-        },
+          status: BuildStatus.failed_deploy
+        }
       });
 
       await octokit.rest.repos.createCommitStatus({
@@ -503,15 +515,17 @@ ${project.id}:${build.commit_id}`);
         state: "failure",
         context: "chief/deployment",
         description: "Failed to get deployment.",
-        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
       });
 
       await createDeploymentLog(
         project.id,
         build.id,
         "Failed to get deployment.",
-        LogLevel.ERROR,
+        LogLevel.ERROR
       );
+
+      await send_notification(build.id, NotificationType.FailedDeploy);
 
       return false;
     }
@@ -522,7 +536,7 @@ ${project.id}:${build.commit_id}`);
       project.id,
       build.id,
       "Deployment retrieved.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const deployment = JSON.parse(get_deployment.toString());
@@ -533,12 +547,12 @@ ${project.id}:${build.commit_id}`);
       project.id,
       build.id,
       "Checking if proxy config exists.",
-      LogLevel.INFO,
+      LogLevel.INFO
     );
 
     const { ok: does_caddyfile_exist, error: does_caddyfile_exist_error } =
       await send_command(
-        `if test -f /sites/${project.id}.caddy; then echo "true"; else echo "false"; fi`,
+        `if test -f /sites/${project.id}.caddy; then echo "true"; else echo "false"; fi`
       );
 
     console.log("does_caddyfile_exist", does_caddyfile_exist);
@@ -555,35 +569,35 @@ ${project.id}:${build.commit_id}`);
         project.id,
         build.id,
         "Generating proxy config.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
 
       const caddy_file = generate_caddyfile(
         domain,
         project.id,
-        project.web_port,
+        project.web_port
       );
 
       const caddyfile_as_base64 = Buffer.from(caddy_file).toString("base64");
 
       const { ok: create_caddyfile, error: create_caddyfile_error } =
         await send_command(
-          `echo "${caddyfile_as_base64}" | base64 --decode > /sites/${project.id}.caddy`,
+          `echo "${caddyfile_as_base64}" | base64 --decode > /sites/${project.id}.caddy`
         );
 
       if (create_caddyfile_error) {
         console.log({
-          error: "failed_to_create_caddyfile",
+          error: "failed_to_create_caddyfile"
         });
 
         await prisma.build.update({
           where: {
-            id: build_id,
+            id: build_id
           },
           data: {
             deployed_at: new Date(),
-            status: BuildStatus.failed_deploy,
-          },
+            status: BuildStatus.failed_deploy
+          }
         });
 
         await octokit.rest.repos.createCommitStatus({
@@ -593,15 +607,17 @@ ${project.id}:${build.commit_id}`);
           state: "failure",
           context: "chief/deployment",
           description: "Failed to create proxy config.",
-          target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+          target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
         });
 
         await createDeploymentLog(
           project.id,
           build.id,
           "Failed to create proxy config.",
-          LogLevel.ERROR,
+          LogLevel.ERROR
         );
+
+        await send_notification(build.id, NotificationType.FailedDeploy);
 
         return false;
       }
@@ -610,34 +626,34 @@ ${project.id}:${build.commit_id}`);
         project.id,
         build.id,
         "Proxy config created.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
 
       await createDeploymentLog(
         project.id,
         build.id,
         "Applying proxy config.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
 
       const { ok: refresh_caddy, error: refresh_caddy_error } =
         await send_command(
-          `curl "http://chief_proxy:2019/load" -H "Content-Type: text/caddyfile" --data-binary @/Caddyfile --silent`,
+          `curl "http://chief_proxy:2019/load" -H "Content-Type: text/caddyfile" --data-binary @/Caddyfile --silent`
         );
 
       if (refresh_caddy_error) {
         console.log({
-          error: "failed_to_refresh_caddy",
+          error: "failed_to_refresh_caddy"
         });
 
         await prisma.build.update({
           where: {
-            id: build_id,
+            id: build_id
           },
           data: {
             deployed_at: new Date(),
-            status: BuildStatus.failed_deploy,
-          },
+            status: BuildStatus.failed_deploy
+          }
         });
 
         await octokit.rest.repos.createCommitStatus({
@@ -647,15 +663,17 @@ ${project.id}:${build.commit_id}`);
           state: "failure",
           context: "chief/deployment",
           description: "Failed to refresh proxy.",
-          target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+          target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
         });
 
         await createDeploymentLog(
           project.id,
           build.id,
           "Failed to apply proxy config.",
-          LogLevel.ERROR,
+          LogLevel.ERROR
         );
+
+        await send_notification(build.id, NotificationType.FailedDeploy);
 
         return false;
       }
@@ -664,17 +682,17 @@ ${project.id}:${build.commit_id}`);
         project.id,
         build.id,
         "Proxy config applied.",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
 
       await prisma.build.update({
         where: {
-          id: build_id,
+          id: build_id
         },
         data: {
           deployed_at: new Date(),
-          status: BuildStatus.deployed,
-        },
+          status: BuildStatus.deployed
+        }
       });
 
       await octokit.rest.repos.createCommitStatus({
@@ -684,27 +702,29 @@ ${project.id}:${build.commit_id}`);
         state: "success",
         context: "chief/deployment",
         description: "Project deployed successfully.",
-        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`,
+        target_url: `https://${process.env.DOMAIN}/projects/${project.id}/builds/${build.id}`
       });
 
       await createDeploymentLog(
         project.id,
         build.id,
         "Deployment successful. ✅",
-        LogLevel.INFO,
+        LogLevel.INFO
       );
+
+      await send_notification(build.id, NotificationType.SuccessfulDeploy);
 
       return {
         status: "success",
         create_deployment,
-        refresh_caddy,
+        refresh_caddy
       };
     }
   }
 
   return {
     status: "success",
-    does_deployment_exist,
+    does_deployment_exist
   };
 }
 
@@ -716,17 +736,17 @@ ${project.id}:${build.commit_id}`);
 export async function delete_deployment(project_id: string) {
   const project = await prisma.project.findFirst({
     where: {
-      id: project_id,
+      id: project_id
     },
     include: {
       github_source: true,
       builds: {
         orderBy: {
-          created_at: "desc",
+          created_at: "desc"
         },
-        take: 1,
-      },
-    },
+        take: 1
+      }
+    }
   });
 
   if (!project) {
@@ -738,7 +758,7 @@ export async function delete_deployment(project_id: string) {
 
   if (delete_service_error) {
     console.log({
-      error: "failed_to_delete_service",
+      error: "failed_to_delete_service"
     });
   }
 
@@ -747,22 +767,22 @@ export async function delete_deployment(project_id: string) {
 
   if (delete_caddyfile_error) {
     console.log({
-      error: "failed_to_delete_caddyfile",
+      error: "failed_to_delete_caddyfile"
     });
   }
 
   const { ok: refresh_caddy, error: refresh_caddy_error } = await send_command(
-    `curl "http://chief_proxy:2019/load" -H "Content-Type: text/caddyfile" --data-binary @/Caddyfile --silent`,
+    `curl "http://chief_proxy:2019/load" -H "Content-Type: text/caddyfile" --data-binary @/Caddyfile --silent`
   );
 
   if (refresh_caddy_error) {
     console.log({
-      error: "failed_to_refresh_caddy",
+      error: "failed_to_refresh_caddy"
     });
   }
 
   return {
     ok: true,
-    status: "deleted",
+    status: "deleted"
   };
 }

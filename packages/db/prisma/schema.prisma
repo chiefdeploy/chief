@@ -31,13 +31,14 @@ model Organization {
   created_by_user_id String
   created_by_user    User   @relation(fields: [created_by_user_id], references: [id])
 
-  created_at         DateTime                   @default(now())
-  updated_at         DateTime                   @updatedAt
-  members            OrganizationMember[]
-  projects           Project[]
-  github_sources     OrganizationGithubSource[]
-  postgres_instances PostgresInstance[]
-  redis_instances    RedisInstance[]
+  created_at             DateTime                           @default(now())
+  updated_at             DateTime                           @updatedAt
+  members                OrganizationMember[]
+  projects               Project[]
+  github_sources         OrganizationGithubSource[]
+  postgres_instances     PostgresInstance[]
+  redis_instances        RedisInstance[]
+  notification_endpoints OrganizationNotificationEndpoint[]
 
   @@map("organizations")
 }
@@ -94,10 +95,15 @@ enum NotificationType {
 model OrganizationNotificationEndpoint {
   id String @id @unique @default(uuid())
 
+  name String
+
   type     NotificationType
   endpoint String
 
   projects ProjectNotificationEndpoint[]
+
+  organization    Organization @relation(fields: [organization_id], references: [id])
+  organization_id String
 
   @@map("organization_notification_endpoints")
 }
@@ -110,6 +116,7 @@ model ProjectNotificationEndpoint {
   notification_endpoint    OrganizationNotificationEndpoint @relation(fields: [notification_endpoint_id], references: [id])
 
   @@id([project_id, notification_endpoint_id])
+  @@unique([project_id, notification_endpoint_id])
   @@map("project_notification_endpoints")
 }
 

@@ -1,4 +1,5 @@
 import Queue from "bull";
+import { NotificationType } from "./notifications";
 
 export async function deploy_and_build(project_id: string) {
   const queue_build_deploy = new Queue("build_deploy", process.env.REDIS_URL!);
@@ -52,5 +53,20 @@ export async function delete_redis_service(service_id: string) {
 
   await queue_delete_redis.add({
     id: service_id
+  });
+}
+
+export async function send_notification(
+  build_id: string,
+  type: NotificationType
+) {
+  const queue_send_notification = new Queue(
+    "send_notification",
+    process.env.REDIS_URL!
+  );
+
+  await queue_send_notification.add({
+    build_id: build_id,
+    type: type
   });
 }
