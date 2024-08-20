@@ -60,6 +60,11 @@ async function mainThread() {
     res.send("ok");
   });
 
+  app.get("/api/version", async (req, res) => {
+    const version = process.env.NEXT_PUBLIC_CHIEF_VERSION;
+    res.send(version);
+  });
+
   app.get("/api", async (req, res) => {
     res.send("api");
   });
