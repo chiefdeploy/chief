@@ -15,7 +15,7 @@ services:
     environment:
       VALKEY_PASSWORD: "${PASSWORD}"
     networks:
-      - chief
+      - chief_dev
 
   postgres:
     image: postgres:16-alpine
@@ -35,7 +35,7 @@ services:
       POSTGRES_USER: "chief"
       POSTGRES_DB: "chief"
     networks:
-      - chief
+      - chief_dev
 
   controller:
     image: chief
@@ -71,7 +71,7 @@ services:
       - ./Caddyfile:/Caddyfile
       - caddy_sites:/sites
     networks:
-      - chief
+      - chief_dev
   proxy:
     image: caddy:latest
     container_name: chief_proxy
@@ -90,12 +90,12 @@ services:
       - caddy_data:/data
       - caddy_sites:/sites
     networks:
-      - chief
+      - chief_dev
 
 networks:
-  chief:
-    name: chief
-    driver: overlay
+  chief_dev:
+    name: chief_dev
+    # driver: overlay
 
 volumes:
   redis_data:

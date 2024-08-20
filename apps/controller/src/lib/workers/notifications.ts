@@ -31,6 +31,7 @@ export async function send_notification_worker(
   });
 
   if (!project) {
+    console.log("send notification (worker): project not found");
     return;
   }
 
@@ -42,39 +43,50 @@ export async function send_notification_worker(
 
   for (const endpoint of endpoints) {
     let message;
+    const endpoint_type = endpoint.notification_endpoint.type;
 
-    if (type === NotificationType.SuccessfulDeploy) {
-      message = `Build **[${build.id.substring(0, 7)}](https://${APP_DOMAIN}/projects/${project.id}/builds/${build.id})** for **[${project.name}](https://${APP_DOMAIN}/projects/${project.id})** (${project.domain}) has been deployed successfully.`;
-    } else if (type === NotificationType.FailedDeploy) {
-      message = `Deployment **[${build.id.substring(0, 7)}](https://${APP_DOMAIN}/projects/${project.id}/builds/${build.id})** for **[${project.name}](https://${APP_DOMAIN}/projects/${project.id})** failed.`;
-    } else if (type === NotificationType.FailedBuild) {
-      message = `Build **[${build.id.substring(0, 7)}](https://${APP_DOMAIN}/projects/${project.id}/builds/${build.id})** for **[${project.name}](https://${APP_DOMAIN}/projects/${project.id})** failed.`;
+    if (endpoint_type === "SLACK") {
+      if (type === NotificationType.SuccessfulDeploy) {
+        message = `Build <${APP_DOMAIN}/projects/${project.id}/builds/${build.id}|${build.id.substring(0, 7)}> for <${APP_DOMAIN}/projects/${project.id}|${project.name}> (${project.domain}) has been deployed successfully.`;
+      } else if (type === NotificationType.FailedDeploy) {
+        message = `Deployment <${APP_DOMAIN}/projects/${project.id}/builds/${build.id}|${build.id.substring(0, 7)}> for <${APP_DOMAIN}/projects/${project.id}|${project.name}> failed.`;
+      } else if (type === NotificationType.FailedBuild) {
+        message = `Build <${APP_DOMAIN}/projects/${project.id}/builds/${build.id}|${build.id.substring(0, 7)}> for <${APP_DOMAIN}/projects/${project.id}|${project.name}> failed.`;
+      } else {
+        return;
+      }
     } else {
-      return;
+      if (type === NotificationType.SuccessfulDeploy) {
+        message = `Build **[${build.id.substring(0, 7)}](${APP_DOMAIN}/projects/${project.id}/builds/${build.id})** for **[${project.name}](${APP_DOMAIN}/projects/${project.id})** (${project.domain}) has been deployed successfully.`;
+      } else if (type === NotificationType.FailedDeploy) {
+        message = `Deployment **[${build.id.substring(0, 7)}](/${APP_DOMAIN}/projects/${project.id}/builds/${build.id})** for **[${project.name}](${APP_DOMAIN}/projects/${project.id})** failed.`;
+      } else if (type === NotificationType.FailedBuild) {
+        message = `Build **[${build.id.substring(0, 7)}](${APP_DOMAIN}/projects/${project.id}/builds/${build.id})** for **[${project.name}](${APP_DOMAIN}/projects/${project.id})** failed.`;
+      } else {
+        return;
+      }
     }
 
-    switch (endpoint.notification_endpoint.type) {
-      case "DISCORD":
-        await send_discord_notification(
-          message,
-          endpoint.notification_endpoint.endpoint
-        );
-        break;
-      case "SLACK":
-        await send_slack_notification(
-          message,
-          endpoint.notification_endpoint.endpoint
-        );
-        break;
-      case "WEBHOOK":
-        await send_webhook_notification(
-          build.id,
-          project.id,
-          type,
-          message,
-          endpoint.notification_endpoint.endpoint
-        );
-        break;
+    if (endpoint_type === "DISCORD") {
+      await send_discord_notification(
+        message,
+        endpoint.notification_endpoint.endpoint
+      );
+    } else if (endpoint_type === "SLACK") {
+      await send_slack_notification(
+        message,
+        endpoint.notification_endpoint.endpoint
+      );
+    } else if (endpoint_type === "WEBHOOK") {
+      await send_webhook_notification(
+        build.id,
+        project.id,
+        type,
+        message,
+        endpoint.notification_endpoint.endpoint
+      );
+    } else {
+      console.log("send notification (worker): invalid notification type");
     }
   }
 }
@@ -94,7 +106,7 @@ async function send_discord_notification(message: string, webhook_url: string) {
         flags: 4
       })
     });
-  } catch (_e) {
+  } catch (e) {
     /* ignore */
   }
 }
@@ -107,10 +119,13 @@ async function send_slack_notification(message: string, webhook_url: string) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        username: "Chief",
+        icon_url:
+          "https://chief-marketing.s3.eu-central-1.amazonaws.com/avatar.jpg",
         text: message
       })
     });
-  } catch (_e) {
+  } catch (e) {
     /* ignore */
   }
 }
@@ -135,7 +150,7 @@ async function send_webhook_notification(
         message
       })
     });
-  } catch (_e) {
+  } catch (e) {
     /* ignore */
   }
 }

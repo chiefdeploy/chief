@@ -205,8 +205,6 @@ export function workerThread(id: number) {
 
   queue_send_notification.process(20, async (job, done) => {
     try {
-      console.log("send notification job", job.data);
-
       const build_id = job.data.build_id;
       const type = job.data.type;
 

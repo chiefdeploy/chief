@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Session } from "@/lib/session-type";
@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 export function NewRedisModal({
   user,
   showModal,
-  onClose,
+  onClose
 }: {
   user: Session;
   showModal: boolean;
@@ -34,7 +34,7 @@ export function NewRedisModal({
     if (!name) {
       toast("Please give the service a name!", {
         dismissible: true,
-        duration: 2000,
+        duration: 2000
       });
       return;
     }
@@ -42,7 +42,7 @@ export function NewRedisModal({
     if (name.length > 64) {
       toast("Service name must be less than 64 characters!", {
         dismissible: true,
-        duration: 2000,
+        duration: 2000
       });
       return;
     }
@@ -52,11 +52,11 @@ export function NewRedisModal({
     fetch(`/api/service/${user.selected_org}/redis`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        name: name,
-      }),
+        name: name
+      })
     })
       .then((res) => res.json())
       .then((data) => {
@@ -64,7 +64,7 @@ export function NewRedisModal({
           toast("Error creating Redis instance!", {
             description: "Please try again.",
             dismissible: true,
-            duration: 2000,
+            duration: 2000
           });
           return;
         }
@@ -75,14 +75,14 @@ export function NewRedisModal({
           duration: 2000,
           onAutoClose: () => {
             window.location.reload();
-          },
+          }
         });
       })
       .catch((err) => {
         toast("Error creating Redis instance!", {
           description: "Please try again.",
           dismissible: true,
-          duration: 2000,
+          duration: 2000
         });
       });
 
@@ -93,9 +93,9 @@ export function NewRedisModal({
     <Dialog open={showModal} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Creating a Redis Instance</DialogTitle>
+          <DialogTitle>Creating a Valkey (Redis) Instance</DialogTitle>
           <DialogDescription>
-            This will create a new Redis instance in your organization.
+            This will create a new Valkey instance in your organization.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>

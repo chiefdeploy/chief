@@ -43,6 +43,17 @@ export default async function ProjectSettingsPage({
         select: {
           name: true
         }
+      },
+      notification_endpoints: {
+        select: {
+          notification_endpoint: {
+            select: {
+              id: true,
+              name: true,
+              type: true
+            }
+          }
+        }
       }
     }
   });

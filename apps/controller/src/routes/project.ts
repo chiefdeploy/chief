@@ -305,6 +305,12 @@ router.delete("/:id", authMiddleware, async (req: RequestWithUser, res) => {
       }
     });
 
+    await prisma.projectNotificationEndpoint.deleteMany({
+      where: {
+        project_id: id
+      }
+    });
+
     await prisma.project.delete({
       where: {
         id: id

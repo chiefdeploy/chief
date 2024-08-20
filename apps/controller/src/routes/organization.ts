@@ -443,14 +443,20 @@ router.post(
         return;
       }
 
-      if (type in NotificationType) {
+      if (
+        type !== NotificationType.DISCORD &&
+        type !== NotificationType.SLACK &&
+        type !== NotificationType.WEBHOOK
+      ) {
         res.status(400).json({ error: "invalid_notification_type" });
       }
 
       if (type === NotificationType.SLACK) {
         if (
-          !endpoint.startsWith("https://hooks.slack.com/services/") &&
-          !endpoint.startsWith("https://hooks.slack-gov.com/services/")
+          !(
+            endpoint.startsWith("https://hooks.slack.com/services/") ||
+            endpoint.startsWith("https://hooks.slack-gov.com/services/")
+          )
         ) {
           res.status(400).json({ error: "invalid_endpoint" });
           return;
@@ -481,9 +487,9 @@ router.post(
   }
 );
 
-// DELETE @/organization/:id/notification-endpoints/:endpoint_id
+// DELETE @/organization/:id/notification-endpoint/:endpoint_id
 router.delete(
-  "/:id/notification-endpoints/:endpoint_id",
+  "/:id/notification-endpoint/:endpoint_id",
   authMiddleware,
   async (req: RequestWithUser, res) => {
     try {
