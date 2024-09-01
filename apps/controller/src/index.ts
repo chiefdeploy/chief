@@ -77,14 +77,6 @@ async function mainThread() {
   app.use("/api/logs", logs_router);
   app.use("/api/instance", instance_router);
 
-  const docker = new Docker({ socketPath: "/var/run/docker.sock" });
-
-  app.get("/api/hi", async (req, res) => {
-    const msg = await docker.listContainers();
-
-    res.json({ ok: true, msg });
-  });
-
   io.use(async (socket: SocketWithUser | any, next) => {
     try {
       const token = decodeURIComponent(
